@@ -1,13 +1,13 @@
 # Whispered Thoughts
 
-A modern web application built with Next.js 13, featuring a beautiful UI powered by Tailwind CSS and Shadcn UI components.
+A modern web application built with Next.js 13, featuring a beautiful UI powered by Tailwind CSS and Next UI components.
 
 ## Features
 
 - 🎨 Modern and responsive design
 - ⚡ Fast page loads with Next.js 13
 - 🎯 Built with TypeScript for better development experience
-- 🎭 Beautiful UI components from Shadcn UI
+- 🎭 Beautiful UI components from Next UI
 - 📱 Mobile-friendly interface
 
 ## Tech Stack
@@ -15,7 +15,7 @@ A modern web application built with Next.js 13, featuring a beautiful UI powered
 - [Next.js 13](https://nextjs.org/) - React framework for production
 - [TypeScript](https://www.typescriptlang.org/) - Static type checking
 - [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
-- [Shadcn UI](https://ui.shadcn.com/) - Re-usable components
+- [Next UI](https://nextui.org/) - Beautiful, fast and modern React UI library
 - [ESLint](https://eslint.org/) - Code linting
 - [PostCSS](https://postcss.org/) - CSS processing
 
