@@ -12,7 +12,7 @@ export function Footer() {
             href="https://github.com/jeiwinfrey" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="hover:text-primary transition-colors"
+            className="hover:text-[hsl(var(--footer-link-hover))] transition-colors"
           >Jeiwinfrey</a></span>
           <Button
             as="a"

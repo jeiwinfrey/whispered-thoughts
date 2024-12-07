@@ -24,17 +24,6 @@ import {
 import { useTheme } from "next-themes";
 import { Lock, Unlock, Eye, EyeOff } from "lucide-react";
 
-const flairOptions = [
-  { value: "Friends", label: "Friends" },
-  { value: "Family", label: "Family" },
-  { value: "Myself", label: "Myself" },
-  { value: "Stranger", label: "Stranger" },
-  { value: "Partner", label: "Partner" },
-  { value: "Enemy", label: "Enemy" },
-  { value: "Crush/Admirer", label: "Crush/Admirer" },
-  { value: "Other", label: "Other" }
-];
-
 const categoryOptions = [
   { label: "Employed", value: "employed" },
   { label: "College", value: "college" },
@@ -44,27 +33,23 @@ const categoryOptions = [
 
 export default function PublishPage() {
   const { theme } = useTheme();
-  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
   const [isVisible, setIsVisible] = useState(false);
   const [formData, setFormData] = useState({
-    salutation: "",
     receiverName: "",
     diaryEntry: "",
     isLocked: false,
-    flair: "",
-    category: "",
-    allowEdit: false,
     username: "",
-    password: "",
-    allowControl: false
+    password: ""
   });
-
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   const [modalValidation, setModalValidation] = useState({
     username: true,
     password: true
   });
+
+  const [error, setError] = useState<string | null>(null);
 
   // Validation functions
   const isAlphabetOnly = (value: string) => /^[A-Za-z\s]*$/.test(value);
@@ -74,16 +59,104 @@ export default function PublishPage() {
 
   // Form validation
   const validations = {
-    salutation: formData.salutation.trim() !== "" && isAlphabetOnly(formData.salutation),
     receiverName: formData.receiverName.trim() !== "" && isAlphabetOnly(formData.receiverName),
-    diaryEntry: formData.diaryEntry.length >= 200,
-    flair: formData.flair.trim() !== ""
+    diaryEntry: formData.diaryEntry.length >= 200
   };
 
-  const canPublish = validations.salutation && validations.receiverName && validations.diaryEntry;
-  const canConfirmPublish = formData.flair.trim() !== "" && formData.username.trim() !== "" && isValidPassword(formData.password);
+  const canPublish = validations.receiverName && validations.diaryEntry;
+  const canConfirmPublish = formData.username.trim() !== "" && isValidPassword(formData.password);
 
   const toggleVisibility = () => setIsVisible(!isVisible);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('/api/thoughts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiver: formData.receiverName.trim(),
+          content: formData.diaryEntry.trim(),
+          isLocked: formData.isLocked,
+          username: formData.username.trim(),
+          password: formData.password
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.details || 'Failed to publish thought');
+      }
+
+      // Redirect back to home page
+      // router.push('/');
+    } catch (error) {
+      console.error('Error publishing thought:', error);
+      setError(error instanceof Error ? error.message : 'Failed to publish thought');
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!modalValidation.username || !modalValidation.password) {
+      setError('Please fill in both username and password');
+      return;
+    }
+
+    if (!formData.diaryEntry.trim()) {
+      setError('Please enter your thoughts');
+      return;
+    }
+
+    try {
+      setError(null);
+      const data = {
+        receiver: formData.receiverName.trim(),
+        content: formData.diaryEntry.trim(),
+        isLocked: formData.isLocked,
+        username: formData.username.trim(),
+        password: formData.password
+      };
+
+      console.log('Sending data:', data);
+
+      const response = await fetch('/api/thoughts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        },
+        cache: 'no-store',
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Error response:', text);
+        throw new Error('Failed to submit thought. Server returned: ' + text);
+      }
+
+      const responseData = await response.json();
+      console.log('Success:', responseData);
+
+      // Reset form and close modal
+      setFormData({
+        receiverName: "",
+        diaryEntry: "",
+        isLocked: false,
+        username: "",
+        password: ""
+      });
+      onClose(); // Close the publish modal
+    } catch (error) {
+      console.error('Error submitting thought:', error);
+      setError(error instanceof Error ? error.message : 'Failed to submit thought');
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-4 max-w-6xl h-[calc(102vh-12rem)] overflow-hidden">
@@ -95,96 +168,68 @@ export default function PublishPage() {
           {/* Header */}
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-default-600 pr-0 font-['Reenie_Beanie'] text-4xl tracking-wide">To my</span>
-                <div className="relative flex items-center">
-                  <Input
-                    value={formData.salutation}
-                    onValueChange={(value) => {
-                      // Remove non-alphabetic characters and spaces
-                      const alphabetOnly = value.replace(/[^a-zA-Z]/g, '');
-                      if (alphabetOnly.length <= 10) {
-                        setFormData({ ...formData, salutation: alphabetOnly });
-                      }
-                    }}
-                    isInvalid={formData.salutation !== "" && !validations.salutation}
-                    variant="bordered"
-                    radius="lg"
-                    maxLength={15}
-                    placeholder="dearest"
-                    classNames={{
-                      input: "text-default-800 font-['Reenie_Beanie'] text-4xl tracking-wide bg-transparent",
-                      inputWrapper: "h-12 bg-transparent border-none shadow-none pr-0",
-                      placeholder: `font-['Reenie_Beanie'] text-4xl tracking-wide ${theme === 'light' ? 'text-[#171717]/50' : 'text-white/50'}`,
-                      base: "group min-h-0"
-                    }}
-                    style={{
-                      width: formData.salutation
-                        ? `${formData.salutation.length + 1}ch`
-                        : '8ch'
-                    }}
-                  />
-                  <span className="text-default-600 font-['Reenie_Beanie'] text-4xl tracking-wide absolute" style={{
-                    left: formData.salutation 
-                      ? `${formData.salutation.length + 1.5}ch`
-                      : '8.5ch'
-                  }}>,</span>
-                  {!formData.salutation && (
-                    <div 
-                      className="absolute -bottom-2 left-0 h-[2px] bg-gradient-to-r from-transparent via-default-600/50 to-transparent group-hover:via-default-400/50 transition-all duration-200"
-                      style={{
-                        width: `${Math.max((formData.salutation?.length || 7) + 2, Math.min(18, (formData.salutation?.length || 7) + 2))}ch`,
-                        marginLeft: '0ch'
-                      }}
-                    ></div>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center">
-                <div className="relative flex items-center ml-2">
-                  <Input
-                    value={formData.receiverName}
-                    onValueChange={(value) => {
-                      // Allow only letters and single space
-                      const processed = value.replace(/[^a-zA-Z\s]/g, '').replace(/\s+/g, ' ');
-                      const words = processed.split(' ').filter(word => word.length > 0);
-                      
-                      if (words.length === 2 && value.endsWith(' ')) {
-                        return;
-                      }
-                      
-                      const wordCount = processed.trim().split(' ').filter(word => word.length > 0).length;
-                      
-                      if (wordCount <= 2 && processed.length <= 20) {
-                        setFormData({ ...formData, receiverName: processed });
-                      }
-                    }}
-                    isInvalid={formData.receiverName !== "" && !validations.receiverName}
-                    variant="bordered"
-                    radius="lg"
-                    maxLength={20}
-                    placeholder="name"
-                    classNames={{
-                      input: "text-default-800 font-['Reenie_Beanie'] text-4xl tracking-wide bg-transparent",
-                      inputWrapper: "h-12 bg-transparent border-none shadow-none",
-                      placeholder: `font-['Reenie_Beanie'] text-4xl tracking-wide ${theme === 'light' ? 'text-[#171717]/50' : 'text-white/50'}`,
-                      base: "group min-h-0"
-                    }}
-                    style={{
-                      width: formData.receiverName
-                        ? `${formData.receiverName.length + 1}ch`
-                        : '5ch'
-                    }}
-                  />
-                  {!formData.receiverName && (
-                    <div 
-                      className="absolute -bottom-2 left-0 h-[2px] bg-gradient-to-r from-transparent via-default-600/50 to-transparent group-hover:via-default-400/50 transition-all duration-200"
-                      style={{
-                        width: `${Math.max((formData.receiverName?.length || 7) + 2, Math.min(18, (formData.receiverName?.length || 7) + 2))}ch`,
-                        marginLeft: '0ch'
-                      }}
-                    ></div>
-                  )}
+              <div className="space-y-8">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-end gap-2">
+                    <span className="text-default-800 font-['Reenie_Beanie'] text-4xl tracking-wide">To</span>
+                    <div className="relative flex items-center">
+                      <Input
+                        value={formData.receiverName}
+                        onValueChange={(value) => {
+                          // Allow only letters and single space
+                          const processed = value.replace(/[^a-zA-Z\s]/g, '').replace(/\s+/g, ' ');
+                          const words = processed.split(' ').filter(word => word.length > 0);
+                          
+                          if (words.length === 2 && value.endsWith(' ')) {
+                            return;
+                          }
+                          
+                          const wordCount = processed.trim().split(' ').filter(word => word.length > 0).length;
+                          
+                          if (wordCount <= 2 && processed.length <= 20) {
+                            setFormData({ ...formData, receiverName: processed });
+                          }
+                        }}
+                        variant="bordered"
+                        radius="lg"
+                        maxLength={20}
+                        placeholder="name"
+                        classNames={{
+                          input: "text-default-800 font-['Reenie_Beanie'] text-4xl tracking-wide bg-transparent text-left",
+                          inputWrapper: "h-12 bg-transparent border-none shadow-none min-w-0",
+                          placeholder: `font-['Reenie_Beanie'] text-4xl tracking-wide ${theme === 'light' ? 'text-[#171717]/50' : 'text-white/50'}`,
+                          base: "group min-h-0 min-w-0"
+                        }}
+                        style={{
+                          width: formData.receiverName
+                            ? `${Math.min(formData.receiverName.length + 1, 20)}ch`
+                            : '5ch'
+                        }}
+                      />
+                      <span 
+                        className="text-default-600 font-['Reenie_Beanie'] text-4xl tracking-wide absolute"
+                        style={{
+                          left: formData.receiverName 
+                            ? `${Math.min(formData.receiverName.length + 1, 19)}ch`
+                            : '6ch'
+                        }}
+                      >,</span>
+                      {!formData.receiverName && (
+                        <div 
+                          className="absolute -bottom-2 left-0 h-[2px] bg-gradient-to-r from-transparent via-default-600/50 to-transparent group-hover:via-default-400/50 transition-all duration-200"
+                          style={{
+                            width: `${Math.max((formData.receiverName?.length || 7) + 2, Math.min(18, (formData.receiverName?.length || 7) + 2))}ch`,
+                            marginLeft: '0ch'
+                          }}
+                        ></div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 text-sm text-default-400">
+                    {!validations.receiverName && formData.receiverName && (
+                      <span>Name must contain only letters</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -303,58 +348,11 @@ export default function PublishPage() {
               </ModalHeader>
               <ModalBody>
                 <div className="space-y-3">
-                  <Select
-                    selectedKeys={formData.flair ? [formData.flair] : []}
-                    onChange={(e) => setFormData({ ...formData, flair: e.target.value })}
-                    size="md"
-                    className="w-full"
-                    variant="bordered"
-                    placeholder="For who?"
-                    aria-label="Select flair"
-                    isInvalid={!validations.flair}
-                    selectionMode="single"
-                    disallowEmptySelection={true}
-                    filterValue={formData.flair}
-                    onFilter={(value) => {
-                      return flairOptions.filter((option) =>
-                        option.label.toLowerCase().includes(value.toLowerCase())
-                      );
-                    }}
-                    classNames={{
-                      trigger: [
-                        "bg-transparent",
-                        "hover:bg-default-100",
-                        "transition-colors",
-                        "border-2",
-                        !validations.flair ? (theme === 'light' ? "border-[#171717]" : "border-white") : "border-default-200/50",
-                        "rounded-full",
-                        "h-unit-14"
-                      ].join(" "),
-                      value: "font-medium",
-                      placeholder: "text-default-600/50",
-                      selectorIcon: "hidden",
-                      base: "rounded-full",
-                      popover: "!bg-background border-2 border-default-200/50 rounded-lg backdrop-blur-none !backdrop-opacity-100",
-                      content: "!bg-background",
-                      listboxWrapper: "!bg-background",
-                      listbox: "!bg-background"
-                    }}
-                    listboxProps={{
-                      itemClasses: {
-                        base: "!bg-background data-[hover=true]:!bg-default-100"
-                      }
-                    }}
-                  >
-                    {flairOptions.map((option) => (
-                      <SelectItem 
-                        key={option.value} 
-                        value={option.value}
-                        className="bg-background hover:bg-default-100 data-[selected=true]:bg-default-100"
-                      >
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </Select>
+                  {error && (
+                    <div className="text-red-500 text-sm text-center mb-2">
+                      {error}
+                    </div>
+                  )}
                   <Input
                     placeholder="Username"
                     value={formData.username}
@@ -419,16 +417,12 @@ export default function PublishPage() {
               </ModalBody>
               <ModalFooter className="justify-center pt-0">
                 <Button 
-                  className={`w-full rounded-full transition-opacity ${
-                    theme === 'light' 
-                      ? "bg-[#171717] text-white hover:opacity-90" 
-                      : "bg-primary text-primary-foreground hover:opacity-90"
-                  } ${!canConfirmPublish ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  onPress={() => {
-                    // Handle publish with credentials
-                    onClose();
-                  }}
-                  isDisabled={!canConfirmPublish}
+                  className="w-full font-medium"
+                  color="primary"
+                  radius="full"
+                  size="lg"
+                  onClick={handlePublish}
+                  isDisabled={!modalValidation.username || !modalValidation.password}
                 >
                   Publish
                 </Button>
